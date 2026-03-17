@@ -1,0 +1,13 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="ImageToPdfMerger:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/ImageToPdfMerger_jar</output-path>
+    <root id="archive" name="ImageToPdfMerger.jar">
+      <element id="module-output" name="ImageToPdfMerger" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/fontbox-3.0.7.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/pdfbox-3.0.7.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/commons-io-2.16.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/pdfbox-io-3.0.7.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/commons-logging-1.3.4.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
