@@ -41,6 +41,7 @@ public class ImageToPdfMerger extends JFrame {
     private static final Color C_ERROR     = new Color(0xDC2626);
     private static final Color C_HINT      = new Color(0x4F6BED);
     private static final Color C_STEP_NUM  = new Color(0x4F6BED);
+    private static final Color C_WARN_TEXT = new Color(0xB45309);
     private static final Font  F_TITLE     = new Font("SansSerif", Font.BOLD,   22);
     private static final Font  F_STEP      = new Font("SansSerif", Font.BOLD,   12);
     private static final Font  F_LABEL     = new Font("SansSerif", Font.PLAIN,  13);
@@ -66,6 +67,7 @@ public class ImageToPdfMerger extends JFrame {
     private final JRadioButton      nameAutoRadio;
     private final JRadioButton      nameCustomRadio;
     private final JTextField        customNameField;
+    private final JTextField        ignoreKeywordField;   // ← NEW
 
     private Path imageDir;
     private long imageCount = 0;
@@ -93,7 +95,6 @@ public class ImageToPdfMerger extends JFrame {
         });
 
         applyGlobalUI();
-
         setLayout(new BorderLayout());
         getContentPane().setBackground(C_BG);
 
@@ -104,7 +105,7 @@ public class ImageToPdfMerger extends JFrame {
                 new MatteBorder(0, 0, 1, 0, C_BORDER),
                 new EmptyBorder(18, 24, 18, 24)));
 
-        JLabel icon  = new JLabel("🖼");
+        JLabel icon = new JLabel("🖼");
         icon.setFont(new Font("SansSerif", Font.PLAIN, 28));
         JPanel iconWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         iconWrap.setOpaque(false);
@@ -138,8 +139,8 @@ public class ImageToPdfMerger extends JFrame {
         badgeWrap.setOpaque(false);
         badgeWrap.add(badge);
 
-        header.add(titleLeft,  BorderLayout.WEST);
-        header.add(badgeWrap,  BorderLayout.EAST);
+        header.add(titleLeft, BorderLayout.WEST);
+        header.add(badgeWrap, BorderLayout.EAST);
         add(header, BorderLayout.NORTH);
 
         // ── Scrollable center ─────────────────────────────────────────────────
@@ -159,7 +160,7 @@ public class ImageToPdfMerger extends JFrame {
         folderInfo.setOpaque(false);
         folderInfo.add(inputDirLabel);
         folderInfo.add(imageCountLabel);
-        folderContent.add(folderInfo,  BorderLayout.CENTER);
+        folderContent.add(folderInfo,   BorderLayout.CENTER);
         folderContent.add(browseButton, BorderLayout.EAST);
         centerPanel.add(makeCard("1", "Select Image Folder", folderContent));
         centerPanel.add(vgap(12));
@@ -167,7 +168,7 @@ public class ImageToPdfMerger extends JFrame {
         // ── Step 2 — Sort ────────────────────────────────────────────────────
         sortCombo = styledCombo(new String[]{
                 S_NAME_AZ, S_NAME_ZA,
-                S_FDATE_OLD, S_FDATE_NEW,
+                S_FDATE_OLD,      S_FDATE_NEW,
                 S_DT_DESC_TR_ASC, S_DT_DESC_TR_DESC,
                 S_DT_ASC_TR_ASC,  S_DT_ASC_TR_DESC,
                 S_TRAIL_ASC,      S_TRAIL_DESC,
@@ -201,6 +202,7 @@ public class ImageToPdfMerger extends JFrame {
         JPanel sortContent = new JPanel();
         sortContent.setLayout(new BoxLayout(sortContent, BoxLayout.Y_AXIS));
         sortContent.setOpaque(false);
+
         JPanel sortRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         sortRow.setOpaque(false);
         JLabel sortByLabel = styledLabel("Sort images by:", C_TEXT);
@@ -208,12 +210,63 @@ public class ImageToPdfMerger extends JFrame {
         sortRow.add(sortByLabel);
         sortRow.add(sortCombo);
         sortContent.add(sortRow);
-        sortContent.add(Box.createVerticalStrut(6));
+        sortContent.add(Box.createVerticalStrut(4));
         sortContent.add(sortHint);
+
+        // ── Ignore keyword sub-row ───────────────────────────────────────────
+        sortContent.add(Box.createVerticalStrut(10));
+
+        JSeparator ignoreSep = new JSeparator();
+        ignoreSep.setForeground(C_BORDER);
+        ignoreSep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        sortContent.add(ignoreSep);
+        sortContent.add(Box.createVerticalStrut(10));
+
+        JPanel ignoreRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        ignoreRow.setOpaque(false);
+
+        JLabel ignoreLabel = styledLabel("Skip images containing:", C_TEXT);
+        ignoreLabel.setBorder(new EmptyBorder(0, 0, 0, 10));
+
+        ignoreKeywordField = new JTextField();
+        ignoreKeywordField.setFont(F_MONO);
+        ignoreKeywordField.setPreferredSize(new Dimension(220, 26));
+        ignoreKeywordField.setBackground(new Color(0xF9FAFB));
+        ignoreKeywordField.setForeground(C_TEXT);
+        ignoreKeywordField.setBorder(new CompoundBorder(
+                new LineBorder(C_BORDER, 1, true),
+                new EmptyBorder(3, 6, 3, 6)));
+        ignoreKeywordField.setToolTipText(
+                "Case-insensitive. Separate multiple keywords with commas: thumb, draft, low");
+
+        JButton clearIgnoreBtn = new JButton("✕");
+        clearIgnoreBtn.setFont(new Font("SansSerif", Font.BOLD, 10));
+        clearIgnoreBtn.setForeground(C_SUBTEXT);
+        clearIgnoreBtn.setBackground(new Color(0xF3F4F6));
+        clearIgnoreBtn.setBorder(new CompoundBorder(
+                new LineBorder(C_BORDER, 1, true),
+                new EmptyBorder(3, 6, 3, 6)));
+        clearIgnoreBtn.setFocusPainted(false);
+        clearIgnoreBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        clearIgnoreBtn.setToolTipText("Clear filter");
+        clearIgnoreBtn.addActionListener(ev -> ignoreKeywordField.setText(""));
+
+        ignoreRow.add(ignoreLabel);
+        ignoreRow.add(ignoreKeywordField);
+        ignoreRow.add(Box.createHorizontalStrut(4));
+        ignoreRow.add(clearIgnoreBtn);
+
+        JLabel ignoreHint = styledItalicLabel(
+                "  ✦ Case-insensitive. Use commas for multiple:  thumb, draft, low");
+        ignoreHint.setForeground(C_SUBTEXT);
+
+        sortContent.add(ignoreRow);
+        sortContent.add(Box.createVerticalStrut(4));
+        sortContent.add(ignoreHint);
 
         sortCombo.setSelectedIndex(0);
         sortCombo.getActionListeners()[0].actionPerformed(null);
-        centerPanel.add(makeCard("2", "Sort Order", sortContent));
+        centerPanel.add(makeCard("2", "Sort Order & Filters", sortContent));
         centerPanel.add(vgap(12));
 
         // ── Step 3 — Quality ─────────────────────────────────────────────────
@@ -226,7 +279,7 @@ public class ImageToPdfMerger extends JFrame {
         });
         JLabel qualityNote = new JLabel("  ⚠  Lower quality = smaller file size, less detail");
         qualityNote.setFont(F_HINT);
-        qualityNote.setForeground(new Color(0xB45309));
+        qualityNote.setForeground(C_WARN_TEXT);
 
         JPanel qualityContent = new JPanel();
         qualityContent.setLayout(new BoxLayout(qualityContent, BoxLayout.Y_AXIS));
@@ -339,13 +392,13 @@ public class ImageToPdfMerger extends JFrame {
         JPanel mergeContent = new JPanel(new BorderLayout(12, 0));
         mergeContent.setOpaque(false);
         mergeContent.add(outputPdfLabel, BorderLayout.CENTER);
-        mergeContent.add(mergeButton,   BorderLayout.EAST);
+        mergeContent.add(mergeButton,    BorderLayout.EAST);
         centerPanel.add(makeCard("6", "Output & Merge", mergeContent));
         centerPanel.add(vgap(12));
 
         // ── Progress ─────────────────────────────────────────────────────────
-        statusLabel   = styledLabel("Waiting…", C_SUBTEXT);
-        progressBar   = buildProgressBar();
+        statusLabel    = styledLabel("Waiting…", C_SUBTEXT);
+        progressBar    = buildProgressBar();
         progressDetail = styledItalicLabel("No operation running.");
 
         JPanel progressContent = new JPanel();
@@ -380,7 +433,7 @@ public class ImageToPdfMerger extends JFrame {
         }
         add(footer, BorderLayout.SOUTH);
 
-        setSize(780, 860);
+        setSize(780, 880);
         setMinimumSize(new Dimension(660, 720));
         setLocationRelativeTo(null);
 
@@ -396,16 +449,15 @@ public class ImageToPdfMerger extends JFrame {
     private void applyGlobalUI() {
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); }
         catch (Exception ignored) {}
-        UIManager.put("ComboBox.background",        Color.WHITE);
-        UIManager.put("ComboBox.foreground",        C_TEXT);
+        UIManager.put("ComboBox.background",          Color.WHITE);
+        UIManager.put("ComboBox.foreground",          C_TEXT);
         UIManager.put("ComboBox.selectionBackground", C_ACCENT);
         UIManager.put("ComboBox.selectionForeground", Color.WHITE);
-        UIManager.put("RadioButton.background",     C_CARD);
-        UIManager.put("RadioButton.foreground",     C_TEXT);
-        UIManager.put("CheckBox.background",        C_CARD);
+        UIManager.put("RadioButton.background",       C_CARD);
+        UIManager.put("RadioButton.foreground",       C_TEXT);
+        UIManager.put("CheckBox.background",          C_CARD);
     }
 
-    /** Card with coloured step-number badge and bold title. */
     private JPanel makeCard(String step, String title, JComponent content) {
         JPanel card = new JPanel(new BorderLayout(0, 10));
         card.setBackground(C_CARD);
@@ -415,17 +467,15 @@ public class ImageToPdfMerger extends JFrame {
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // header row
         JPanel hdr = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         hdr.setOpaque(false);
 
         JLabel stepBadge = new JLabel(step);
         stepBadge.setFont(new Font("SansSerif", Font.BOLD, 11));
         stepBadge.setForeground(Color.WHITE);
-        stepBadge.setOpaque(true);
-        stepBadge.setBackground(C_STEP_NUM);
+        stepBadge.setOpaque(false);
         stepBadge.setBorder(new EmptyBorder(2, 8, 2, 8));
-        // round badge via panel trick
+
         JPanel badgePanel = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -439,7 +489,6 @@ public class ImageToPdfMerger extends JFrame {
         badgePanel.setOpaque(false);
         badgePanel.setLayout(new BorderLayout());
         badgePanel.add(stepBadge);
-        stepBadge.setOpaque(false);
 
         JLabel titleLbl = new JLabel(title);
         titleLbl.setFont(F_STEP);
@@ -448,12 +497,11 @@ public class ImageToPdfMerger extends JFrame {
         hdr.add(badgePanel);
         hdr.add(titleLbl);
 
-        // separator
         JSeparator sep = new JSeparator();
         sep.setForeground(C_BORDER);
 
-        card.add(hdr,     BorderLayout.NORTH);
-        card.add(sep,     BorderLayout.CENTER);
+        card.add(hdr, BorderLayout.NORTH);
+        card.add(sep, BorderLayout.CENTER);
 
         JPanel contentWrap = new JPanel(new BorderLayout());
         contentWrap.setOpaque(false);
@@ -465,64 +513,42 @@ public class ImageToPdfMerger extends JFrame {
     }
 
     private JLabel styledLabel(String text, Color fg) {
-        JLabel l = new JLabel(text);
-        l.setFont(F_LABEL);
-        l.setForeground(fg);
-        return l;
+        JLabel l = new JLabel(text); l.setFont(F_LABEL); l.setForeground(fg); return l;
     }
-
     private JLabel styledMonoLabel(String text, Color fg) {
-        JLabel l = new JLabel(text);
-        l.setFont(F_MONO);
-        l.setForeground(fg);
-        return l;
+        JLabel l = new JLabel(text); l.setFont(F_MONO);  l.setForeground(fg); return l;
     }
-
     private JLabel styledItalicLabel(String text) {
-        JLabel l = new JLabel(text);
-        l.setFont(F_HINT);
-        l.setForeground(C_SUBTEXT);
-        return l;
+        JLabel l = new JLabel(text); l.setFont(F_HINT);  l.setForeground(C_SUBTEXT); return l;
     }
-
     private JRadioButton styledRadio(String text) {
         JRadioButton rb = new JRadioButton(text);
-        rb.setFont(F_LABEL);
-        rb.setForeground(C_TEXT);
-        rb.setOpaque(false);
-        rb.setBackground(C_CARD);
-        rb.setFocusPainted(false);
+        rb.setFont(F_LABEL); rb.setForeground(C_TEXT);
+        rb.setOpaque(false); rb.setBackground(C_CARD); rb.setFocusPainted(false);
         return rb;
     }
-
     private <T> JComboBox<T> styledCombo(T[] items) {
         JComboBox<T> cb = new JComboBox<>(items);
-        cb.setFont(F_LABEL);
-        cb.setBackground(Color.WHITE);
-        cb.setForeground(C_TEXT);
-        cb.setBorder(new CompoundBorder(
-                new LineBorder(C_BORDER, 1, true),
-                new EmptyBorder(2, 4, 2, 4)));
-        cb.setFocusable(false);
-        cb.setPreferredSize(new Dimension(300, 30));
+        cb.setFont(F_LABEL); cb.setBackground(Color.WHITE); cb.setForeground(C_TEXT);
+        cb.setBorder(new CompoundBorder(new LineBorder(C_BORDER, 1, true), new EmptyBorder(2, 4, 2, 4)));
+        cb.setFocusable(false); cb.setPreferredSize(new Dimension(300, 30));
         return cb;
     }
-
     private void styleSpinner(JSpinner sp) {
-        sp.setFont(F_LABEL);
-        sp.setPreferredSize(new Dimension(90, 28));
+        sp.setFont(F_LABEL); sp.setPreferredSize(new Dimension(90, 28));
         ((JSpinner.DefaultEditor) sp.getEditor()).getTextField().setColumns(6);
         sp.setBorder(new LineBorder(C_BORDER, 1, true));
     }
+    private Component vgap(int h) { return Box.createVerticalStrut(h); }
 
     private JButton styledPrimaryButton(String text) {
         JButton btn = new JButton(text) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                Color bg = !isEnabled() ? new Color(0xCBD5E1)
-                        : getModel().isPressed()  ? C_ACCENT_HO
-                        : getModel().isRollover() ? C_ACCENT_HO
+                Color bg = !isEnabled()             ? new Color(0xCBD5E1)
+                        : getModel().isPressed()   ? C_ACCENT_HO
+                        : getModel().isRollover()  ? C_ACCENT_HO
                         : C_ACCENT;
                 g2.setColor(bg);
                 g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 10, 10));
@@ -530,12 +556,9 @@ public class ImageToPdfMerger extends JFrame {
                 super.paintComponent(g);
             }
         };
-        btn.setFont(F_MERGE_BTN);
-        btn.setForeground(Color.WHITE);
-        btn.setContentAreaFilled(false);
-        btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
-        btn.setOpaque(false);
+        btn.setFont(F_MERGE_BTN); btn.setForeground(Color.WHITE);
+        btn.setContentAreaFilled(false); btn.setBorderPainted(false);
+        btn.setFocusPainted(false); btn.setOpaque(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setPreferredSize(new Dimension(220, 38));
         btn.setBorder(new EmptyBorder(0, 16, 0, 16));
@@ -559,12 +582,9 @@ public class ImageToPdfMerger extends JFrame {
                 super.paintComponent(g);
             }
         };
-        btn.setFont(F_BTN);
-        btn.setForeground(C_TEXT);
-        btn.setContentAreaFilled(false);
-        btn.setBorderPainted(false);
-        btn.setFocusPainted(false);
-        btn.setOpaque(false);
+        btn.setFont(F_BTN); btn.setForeground(C_TEXT);
+        btn.setContentAreaFilled(false); btn.setBorderPainted(false);
+        btn.setFocusPainted(false); btn.setOpaque(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btn.setPreferredSize(new Dimension(110, 34));
         return btn;
@@ -575,16 +595,13 @@ public class ImageToPdfMerger extends JFrame {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // track
                 g2.setColor(new Color(0xE2E8F0));
                 g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), getHeight(), getHeight()));
-                // fill
                 int fillW = (int)((getWidth() * (long) getValue()) / getMaximum());
                 if (fillW > 0) {
                     g2.setColor(C_ACCENT);
                     g2.fill(new RoundRectangle2D.Float(0, 0, fillW, getHeight(), getHeight(), getHeight()));
                 }
-                // text
                 g2.setColor(getValue() > 50 ? Color.WHITE : C_TEXT);
                 g2.setFont(new Font("SansSerif", Font.BOLD, 11));
                 String s = getString();
@@ -594,18 +611,12 @@ public class ImageToPdfMerger extends JFrame {
                 g2.dispose();
             }
         };
-        pb.setStringPainted(false);
-        pb.setString("0%");
+        pb.setStringPainted(false); pb.setString("0%");
         pb.setPreferredSize(new Dimension(Integer.MAX_VALUE, 18));
         pb.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
-        pb.setOpaque(false);
-        pb.setBorderPainted(false);
+        pb.setOpaque(false); pb.setBorderPainted(false);
         pb.setAlignmentX(Component.LEFT_ALIGNMENT);
         return pb;
-    }
-
-    private Component vgap(int h) {
-        return Box.createVerticalStrut(h);
     }
 
     // ── onBrowse ──────────────────────────────────────────────────────────────
@@ -657,6 +668,7 @@ public class ImageToPdfMerger extends JFrame {
 
         final boolean useAutoName = nameAutoRadio.isSelected();
         final String  customBase  = sanitize(customNameField.getText().trim());
+        final String  ignoreKey   = ignoreKeywordField.getText();   // ← NEW
 
         File outDir;
         File finalOut;
@@ -723,8 +735,15 @@ public class ImageToPdfMerger extends JFrame {
                     } else {
                         List<Path> images = new ArrayList<>(
                                 ImageUtils.imageFilesIn(imageDir).toList());
-                        System.out.println("=== Images found: " + images.size() + " ===");
-                        if (images.isEmpty()) { publish("STATUS:No images found."); return null; }
+                        System.out.println("=== Images found (before filter): " + images.size() + " ===");
+
+                        images = applyIgnoreFilter(images, ignoreKey);  // ← NEW
+
+                        System.out.println("=== Images kept (after filter): " + images.size() + " ===");
+                        if (images.isEmpty()) {
+                            publish("STATUS:No images left after filter — check keyword.");
+                            return null;
+                        }
                         sortImages(images, sortKey);
                         if (enableSlicing)
                             doSlicedMerge(images, imagesPerPdf, qualityKey, finalOutF);
@@ -739,6 +758,7 @@ public class ImageToPdfMerger extends JFrame {
                 return null;
             }
 
+            // ── MODE 1: Single PDF ────────────────────────────────────────────
             private void doSingleMerge(List<Path> images, String qKey, File outFile)
                     throws Exception {
                 long total = images.size(); int skipped = 0;
@@ -770,6 +790,7 @@ public class ImageToPdfMerger extends JFrame {
                 }
             }
 
+            // ── MODE 2: Sliced PDFs ───────────────────────────────────────────
             private void doSlicedMerge(List<Path> images, int perPdf, String qKey, File baseFile)
                     throws Exception {
                 int total = images.size(), totalPdfs = (int) Math.ceil((double) total / perPdf);
@@ -778,8 +799,8 @@ public class ImageToPdfMerger extends JFrame {
                 File   dir  = baseFile.getParentFile();
                 for (int part = 0; part < totalPdfs; part++) {
                     if (isCancelled()) break;
-                    int startIdx = part * perPdf, endIdx = Math.min(startIdx + perPdf, total);
-                    File partFile = new File(dir, String.format("%s_part_%03d.pdf", base, part+1));
+                    int  startIdx = part * perPdf, endIdx = Math.min(startIdx + perPdf, total);
+                    File partFile = new File(dir, String.format("%s_part_%03d.pdf", base, part + 1));
                     publish("STATUS:PDF " + (part+1) + "/" + totalPdfs
                             + " — adding " + (endIdx - startIdx) + " images…");
                     try (PDDocument doc = new PDDocument()) {
@@ -804,30 +825,45 @@ public class ImageToPdfMerger extends JFrame {
                 publish("PERCENT:100");
             }
 
+            // ── MODE 3: Per-folder PDFs ───────────────────────────────────────
             private void doSubfolderMerge(File rootDir, String sKey, String qKey,
                                           File outDirectory, boolean autoName, String customPrefix)
                     throws Exception {
                 List<FolderScope> scopes = new ArrayList<>();
-                List<Path> rootImages = new ArrayList<>(ImageUtils.imageFilesIn(rootDir.toPath()).toList());
+
+                List<Path> rootImages = new ArrayList<>(
+                        ImageUtils.imageFilesIn(rootDir.toPath()).toList());
+                rootImages = applyIgnoreFilter(rootImages, ignoreKey);  // ← NEW
                 if (!rootImages.isEmpty()) {
-                    String pdfName = autoName ? sanitize(rootDir.getName()) + ".pdf"
+                    String pdfName = autoName
+                            ? sanitize(rootDir.getName()) + ".pdf"
                             : customPrefix + ".pdf";
                     scopes.add(new FolderScope(rootDir, rootImages, pdfName));
                 }
+
                 File[] subs = rootDir.listFiles(File::isDirectory);
                 if (subs != null) {
                     Arrays.sort(subs, Comparator.comparing(File::getName));
                     for (File sub : subs) {
-                        List<Path> imgs = new ArrayList<>(ImageUtils.imageFilesIn(sub.toPath()).toList());
-                        if (imgs.isEmpty()) { System.out.println("⊘ Skipped: " + sub.getName()); continue; }
-                        String pdfName = autoName ? sanitize(sub.getName()) + ".pdf"
+                        List<Path> imgs = new ArrayList<>(
+                                ImageUtils.imageFilesIn(sub.toPath()).toList());
+                        imgs = applyIgnoreFilter(imgs, ignoreKey);  // ← NEW
+                        if (imgs.isEmpty()) {
+                            System.out.println("⊘ Skipped (empty after filter): " + sub.getName());
+                            continue;
+                        }
+                        String pdfName = autoName
+                                ? sanitize(sub.getName()) + ".pdf"
                                 : customPrefix + "_" + sanitize(sub.getName()) + ".pdf";
                         scopes.add(new FolderScope(sub, imgs, pdfName));
                     }
                 }
+
                 if (scopes.isEmpty()) { publish("STATUS:No images found anywhere."); return; }
+
                 long grandTotal = scopes.stream().mapToLong(s -> s.images.size()).sum();
                 long grandDone  = 0; int grandSkip = 0;
+
                 for (FolderScope scope : scopes) {
                     if (isCancelled()) break;
                     sortImages(scope.images, sKey);
@@ -850,7 +886,10 @@ public class ImageToPdfMerger extends JFrame {
                                     + (i+1) + "/" + scope.images.size() + "  " + path.getFileName());
                             publish("PERCENT:" + pct);
                         }
-                        if (doc.getNumberOfPages() == 0) { System.out.println("⊘ 0 pages: " + scope.pdfName); continue; }
+                        if (doc.getNumberOfPages() == 0) {
+                            System.out.println("⊘ 0 pages for " + scope.pdfName + " — skipped.");
+                            continue;
+                        }
                         doc.save(pdfFile); createdCount++;
                     }
                 }
@@ -858,23 +897,27 @@ public class ImageToPdfMerger extends JFrame {
                 publish("PERCENT:100");
             }
 
+            // ── Sort ──────────────────────────────────────────────────────────
             private void sortImages(List<Path> images, String sKey) {
                 if (sKey == null) return;
                 switch (sKey) {
                     case S_NAME_AZ ->
-                            images.sort(Comparator.comparing(p -> p.getFileName().toString().toLowerCase()));
+                            images.sort(Comparator.comparing(
+                                    p -> p.getFileName().toString().toLowerCase()));
                     case S_NAME_ZA ->
                             images.sort(Comparator.comparing(
                                     (Path p) -> p.getFileName().toString().toLowerCase()).reversed());
                     case S_FDATE_OLD ->
                             images.sort((p1, p2) -> {
-                                try { return Long.compare(Files.getLastModifiedTime(p1).toMillis(),
+                                try { return Long.compare(
+                                        Files.getLastModifiedTime(p1).toMillis(),
                                         Files.getLastModifiedTime(p2).toMillis());
                                 } catch (Exception ex) { return 0; }
                             });
                     case S_FDATE_NEW ->
                             images.sort((p1, p2) -> {
-                                try { return -Long.compare(Files.getLastModifiedTime(p1).toMillis(),
+                                try { return -Long.compare(
+                                        Files.getLastModifiedTime(p1).toMillis(),
                                         Files.getLastModifiedTime(p2).toMillis());
                                 } catch (Exception ex) { return 0; }
                             });
@@ -883,7 +926,8 @@ public class ImageToPdfMerger extends JFrame {
                                 int cmp = parseDateComponents(b.getFileName().toString())
                                         .compareTo(parseDateComponents(a.getFileName().toString()));
                                 if (cmp != 0) return cmp;
-                                return Long.compare(extractTrailingNumber(a.getFileName().toString()),
+                                return Long.compare(
+                                        extractTrailingNumber(a.getFileName().toString()),
                                         extractTrailingNumber(b.getFileName().toString()));
                             });
                     case S_DT_DESC_TR_DESC ->
@@ -891,7 +935,8 @@ public class ImageToPdfMerger extends JFrame {
                                 int cmp = parseDateComponents(b.getFileName().toString())
                                         .compareTo(parseDateComponents(a.getFileName().toString()));
                                 if (cmp != 0) return cmp;
-                                return Long.compare(extractTrailingNumber(b.getFileName().toString()),
+                                return Long.compare(
+                                        extractTrailingNumber(b.getFileName().toString()),
                                         extractTrailingNumber(a.getFileName().toString()));
                             });
                     case S_DT_ASC_TR_ASC ->
@@ -899,7 +944,8 @@ public class ImageToPdfMerger extends JFrame {
                                 int cmp = parseDateComponents(a.getFileName().toString())
                                         .compareTo(parseDateComponents(b.getFileName().toString()));
                                 if (cmp != 0) return cmp;
-                                return Long.compare(extractTrailingNumber(a.getFileName().toString()),
+                                return Long.compare(
+                                        extractTrailingNumber(a.getFileName().toString()),
                                         extractTrailingNumber(b.getFileName().toString()));
                             });
                     case S_DT_ASC_TR_DESC ->
@@ -907,7 +953,8 @@ public class ImageToPdfMerger extends JFrame {
                                 int cmp = parseDateComponents(a.getFileName().toString())
                                         .compareTo(parseDateComponents(b.getFileName().toString()));
                                 if (cmp != 0) return cmp;
-                                return Long.compare(extractTrailingNumber(b.getFileName().toString()),
+                                return Long.compare(
+                                        extractTrailingNumber(b.getFileName().toString()),
                                         extractTrailingNumber(a.getFileName().toString()));
                             });
                     case S_TRAIL_ASC ->
@@ -915,13 +962,15 @@ public class ImageToPdfMerger extends JFrame {
                                     p -> extractTrailingNumber(p.getFileName().toString())));
                     case S_TRAIL_DESC ->
                             images.sort(Comparator.comparingLong(
-                                    (Path p) -> extractTrailingNumber(p.getFileName().toString())).reversed());
+                                    (Path p) -> extractTrailingNumber(
+                                            p.getFileName().toString())).reversed());
                     case S_LEAD_ASC ->
                             images.sort(Comparator.comparingLong(
                                     p -> extractLeadingNumber(p.getFileName().toString())));
                     case S_LEAD_DESC ->
                             images.sort(Comparator.comparingLong(
-                                    (Path p) -> extractLeadingNumber(p.getFileName().toString())).reversed());
+                                    (Path p) -> extractLeadingNumber(
+                                            p.getFileName().toString())).reversed());
                 }
             }
 
@@ -987,6 +1036,7 @@ public class ImageToPdfMerger extends JFrame {
                 }
             }
         };
+
         worker.execute();
     }
 
@@ -1038,6 +1088,50 @@ public class ImageToPdfMerger extends JFrame {
         }
     }
 
+    // ── applyIgnoreFilter ─────────────────────────────────────────────────────
+    /**
+     * Removes any image whose filename contains at least one of the
+     * comma-separated keywords (case-insensitive).
+     *
+     * Examples:
+     *   "thumb"          → skips *thumb* files
+     *   "thumb, draft"   → skips files containing "thumb" OR "draft"
+     *   ""  / blank      → no filtering (all images kept)
+     */
+    private List<Path> applyIgnoreFilter(List<Path> input, String rawKeywords) {
+        if (rawKeywords == null) rawKeywords = "";
+        String trimmed = rawKeywords.trim();
+        if (trimmed.isEmpty()) return input;
+
+        // split on commas, strip whitespace, drop blanks
+        List<String> keywords = new ArrayList<>();
+        for (String k : trimmed.split(",")) {
+            String kk = k.trim().toLowerCase();
+            if (!kk.isEmpty()) keywords.add(kk);
+        }
+        if (keywords.isEmpty()) return input;
+
+        List<Path> out = new ArrayList<>(input.size());
+        int ignored = 0;
+        for (Path p : input) {
+            String name = p.getFileName().toString().toLowerCase();
+            boolean skip = false;
+            for (String k : keywords) {
+                if (name.contains(k)) { skip = true; break; }
+            }
+            if (skip) {
+                System.out.println("⊘ Ignored (keyword match): " + p.getFileName());
+                ignored++;
+            } else {
+                out.add(p);
+            }
+        }
+        System.out.println("Filter: keywords=" + keywords
+                + "  kept=" + out.size() + "  ignored=" + ignored
+                + "  total=" + input.size());
+        return out;
+    }
+
     // ── Sort helpers ──────────────────────────────────────────────────────────
 
     private record DateComponents(int year, int month, int day,
@@ -1078,7 +1172,8 @@ public class ImageToPdfMerger extends JFrame {
             try {
                 int y = Integer.parseInt(m3.group(1));
                 if (y >= 1900 && y <= 2099)
-                    return new DateComponents(y, Integer.parseInt(m3.group(2)),
+                    return new DateComponents(y,
+                            Integer.parseInt(m3.group(2)),
                             Integer.parseInt(m3.group(3)), -1, -1, -1);
             } catch (Exception ignored) {}
         }
@@ -1101,7 +1196,7 @@ public class ImageToPdfMerger extends JFrame {
         StringBuilder sb = new StringBuilder(); boolean found = false;
         for (char c : filename.toCharArray()) {
             if (Character.isDigit(c)) { sb.append(c); found = true; }
-            else if (found) { break; }
+            else if (found) break;
         }
         if (!found) return Long.MAX_VALUE;
         try { return Long.parseLong(sb.toString()); }
